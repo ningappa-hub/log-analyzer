@@ -3,3 +3,4 @@ uvicorn
 python-multipart
 sqlalchemy
 langchain
+langchain-openai

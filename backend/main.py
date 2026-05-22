@@ -1,7 +1,8 @@
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Path, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from analyzer import analyze_log_message
 from database import Base, engine, get_db
 from models import LogEntry
 from parser import parse_log_line
@@ -87,6 +88,31 @@ def get_logs(
         }
         for entry in entries
     ]
+
+
+@app.post("/analyze-error/{log_id}")
+def analyze_error(
+    log_id: int = Path(..., description="ID of the log entry to analyze"),
+    db: Session = Depends(get_db),
+):
+    entry = db.query(LogEntry).filter(LogEntry.id == log_id).first()
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Log entry {log_id} not found")
+
+    try:
+        result = analyze_log_message(entry.message)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"LLM analysis failed: {exc}",
+        )
+
+    return {
+        "log_id": entry.id,
+        "log_message": entry.message,
+        "root_cause": result.get("root_cause", ""),
+        "suggested_fix": result.get("suggested_fix", ""),
+    }
 
 
 if __name__ == "__main__":
