@@ -47,7 +47,12 @@ Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) dire
    ```bash
    cd backend
    ```
-2. (Optional but recommended) Create a virtual environment and activate it:
+2. Create a local environment file from the safe template:
+   ```bash
+   copy .env.example .env
+   ```
+   Fill in `GEMINI_API_KEY` or `GOOGLE_API_KEY` only if you want live AI analysis. The backend also runs in demo mode without those keys.
+3. (Optional but recommended) Create a virtual environment and activate it:
    ```bash
    python -m venv venv
    # On Windows (PowerShell):
@@ -55,11 +60,11 @@ Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) dire
    # On Windows (CMD):
    .\venv\Scripts\activate.bat
    ```
-3. Install the required Python packages:
+4. Install the required Python packages:
    ```bash
    pip install -r requirements.txt
    ```
-4. Start the FastAPI development server:
+5. Start the FastAPI development server:
    ```bash
    python main.py
    ```

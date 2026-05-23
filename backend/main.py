@@ -3,10 +3,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
+import json
+import re
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
+
+# Prefer direct Google SDK usage.
+try:
+    import google.genai as genai
+    HAS_GENAI = True
+except Exception:
+    genai = None
+    HAS_GENAI = False
+
+try:
+    import google.generativeai as legacy_genai
+    HAS_LEGACY_GENAI = True
+except Exception:
+    legacy_genai = None
+    HAS_LEGACY_GENAI = False
 import models
 from database import engine, get_db, Base
 from parser import parse_log_content
@@ -30,10 +44,18 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Log Analyzer API", version="1.0.0")
 
 # Setup CORS middleware to allow requests from the React frontend
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:4173,http://127.0.0.1:4173",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -200,33 +222,69 @@ def analyze_error_log(log_id: int, db: Session = Depends(get_db)):
         )
         
     try:
+        # If Gemini key is present prefer direct Google SDK usage.
         if use_gemini:
-            # Google Gemini Integration
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
-                google_api_key=gemini_key,
-                temperature=0
+            system_prompt = (
+                "You are an expert AI Support Engineer.\n"
+                "Analyze the provided error log and return ONLY a JSON object with two keys: \"root_cause\" and \"suggested_fix\"."
+                " The values should be short, actionable strings. Do not include extra explanation or surrounding text."
             )
+            prompt = f"{system_prompt}\n\nError log:\n{log_entry.message}\n\nRespond with JSON."
+            text_output = None
+
+            if HAS_GENAI:
+                model_name = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
+                client = genai.Client(api_key=gemini_key)
+                resp = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config={"temperature": 0.0}
+                )
+                text_output = getattr(resp, "text", None)
+
+                if not text_output and getattr(resp, "candidates", None):
+                    try:
+                        parts = resp.candidates[0].content.parts
+                        text_output = "\n".join([p.text for p in parts if getattr(p, "text", None)])
+                    except Exception:
+                        text_output = None
+            elif HAS_LEGACY_GENAI:
+                # Legacy SDK fallback.
+                model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+                legacy_genai.configure(api_key=gemini_key)
+                model = legacy_genai.GenerativeModel(model_name)
+                resp = model.generate_content(prompt)
+                text_output = getattr(resp, "text", None)
+
+            if not text_output:
+                raise RuntimeError("No Gemini SDK available in runtime or empty model response")
+
+            # Try to extract JSON payload from the model output.
+            m = re.search(r"\{[\s\S]*\}", text_output)
+            if not m:
+                lines = [l.strip() for l in text_output.splitlines() if l.strip()]
+                data = {
+                    "root_cause": lines[0] if lines else "",
+                    "suggested_fix": lines[1] if len(lines) > 1 else ""
+                }
+            else:
+                json_text = m.group(0)
+                try:
+                    data = json.loads(json_text)
+                except Exception:
+                    try:
+                        data = json.loads(json_text.replace("'", '"'))
+                    except Exception as ex:
+                        raise RuntimeError(f"Failed to parse JSON from model output: {ex}; raw output: {text_output}")
+
+            rc = data.get("root_cause") or data.get("rootCause") or data.get("root-cause") or ""
+            sf = data.get("suggested_fix") or data.get("suggestedFix") or data.get("suggested-fix") or ""
+            return AnalysisResponse(root_cause=str(rc), suggested_fix=str(sf))
         else:
-            # OpenAI Integration
-            llm = ChatOpenAI(
-                model="gpt-4o-mini",
-                api_key=openai_key,
-                temperature=0
+            return AnalysisResponse(
+                root_cause="[AI unavailable] No Gemini API key found.",
+                suggested_fix="Set GEMINI_API_KEY or GOOGLE_API_KEY in backend/.env and restart the backend service."
             )
-        
-        # Define the prompt template
-        prompt_template = PromptTemplate.from_template(
-            "You are an expert AI Support Engineer. Analyze this error log and provide a brief root cause hypothesis and a suggested fix: {log_message}"
-        )
-        
-        # Set up modern structured output pipeline
-        structured_llm = llm.with_structured_output(AnalysisResponse)
-        chain = prompt_template | structured_llm
-        
-        # Invoke the LangChain
-        result = chain.invoke({"log_message": log_entry.message})
-        return result
         
     except Exception as e:
         raise HTTPException(

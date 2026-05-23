@@ -17,7 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function App() {
   const [logs, setLogs] = useState([]);
@@ -117,9 +117,28 @@ function App() {
         body: formData,
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json() : null;
+
+      if (res.ok && !isJson) {
+        throw new Error('Upload failed: server returned an unexpected response format.');
+      }
+
       if (!res.ok) {
-        throw new Error(data.detail || 'Upload failed');
+        let message = data?.detail || data?.message || `Upload failed (${res.status})`;
+
+        if (!isJson) {
+          const bodyText = await res.text();
+          if (res.status === 413) {
+            message = 'Upload failed: file is too large for the server limit.';
+          } else if (bodyText) {
+            const normalized = bodyText.replace(/\s+/g, ' ').trim();
+            message = `Upload failed (${res.status}): ${normalized.slice(0, 180)}`;
+          }
+        }
+
+        throw new Error(message);
       }
 
       setUploadStatus({
@@ -246,11 +265,11 @@ function App() {
       <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/25">
+            <div className="p-2.5 bg-linear-to-tr from-purple-600 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/25">
               <Terminal className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold tracking-tight bg-linear-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
                 Log Analyzer
               </h1>
               <p className="text-xs text-slate-500 font-medium">FastAPI + React Dashboard</p>
@@ -338,9 +357,9 @@ function App() {
                 : 'bg-red-950/20 border-red-950 text-red-400'
             }`}>
               {uploadStatus.success ? (
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
               ) : (
-                <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
               )}
               <span className="text-sm font-medium">{uploadStatus.message}</span>
             </div>
@@ -465,7 +484,7 @@ function App() {
                         </td>
                         
                         {/* Message column */}
-                        <td className="py-3 px-4 text-slate-300 break-words pr-8">
+                        <td className="py-3 px-4 text-slate-300 wrap-break-word pr-8">
                           {isExpanded ? (
                             <div className="space-y-3 mt-1">
                               <div className="space-y-1">
@@ -488,14 +507,14 @@ function App() {
                                   
                                   {aiAnalysis[log.id].loading && (
                                     <div className="p-3.5 bg-purple-950/15 border border-purple-900/30 rounded-xl flex items-center gap-3 text-purple-400">
-                                      <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" />
+                                      <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
                                       <span className="text-xs font-semibold animate-pulse">Analyzing logs & formulating response...</span>
                                     </div>
                                   )}
                                   
                                   {aiAnalysis[log.id].error && (
                                     <div className="p-3.5 bg-red-950/20 border border-red-900/30 rounded-xl flex items-start gap-2.5 text-red-400">
-                                      <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                      <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                       <div className="space-y-0.5">
                                         <p className="text-xs font-bold">Analysis Failed</p>
                                         <p className="text-[11px] text-red-300/80">{aiAnalysis[log.id].error}</p>
