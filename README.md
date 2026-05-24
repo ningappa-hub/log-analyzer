@@ -1,11 +1,12 @@
-# Log Analyzer Monorepo
+﻿# 📊 Log Analyzer Monorepo
 
-A modern, high-performance Log Analyzer application built with a **Python FastAPI** backend (using SQLite & SQLAlchemy) and a **React + Tailwind CSS v4** frontend (using Vite & Lucide Icons).
+A modern, high-performance Log Analyzer application built to parse, store, and analyze log files. It features a **Python FastAPI** backend (using SQLite & SQLAlchemy) and a **React + Tailwind CSS v4** frontend (using Vite & Lucide Icons).
 
-## Features
+## 🌟 Key Features
 - **Regex-Based Parser**: Automatically parses timestamp, level (INFO, WARN, ERROR, DEBUG), and message fields from uploaded log files.
 - **Multiline Support**: Safely merges multiline tracebacks or stack traces into a single log entry.
 - **Relational Storage**: Saves parsed logs to a SQLite database (`logs.db`).
+- **AI Integration**: Integrated with Google Gemini models (`google-genai`) to provide live AI analysis of log details.
 - **Interactive UI Dashboard**:
   - Live statistics display (total logs, error/warning/info/debug breakdowns).
   - Drag-and-drop log ingestion (`.log` or `.txt` files).
@@ -14,33 +15,80 @@ A modern, high-performance Log Analyzer application built with a **Python FastAP
   - Expansible rows to display large multiline stack traces in a terminal-like environment.
   - Clear database button.
 
+## 🛠️ Tech Stack
+
+### Backend
+*   **Framework**: FastAPI (served via Uvicorn)
+*   **Database**: SQLite with SQLAlchemy ORM
+*   **AI**: Google GenAI (`google-genai`, `google-generativeai`)
+*   **Parsing**: Python `re` (Regex-based multiline parser)
+
+### Frontend
+*   **Framework**: React 19
+*   **Tooling**: Vite
+*   **Styling**: Tailwind CSS v4
+*   **Icons**: Lucide React
+
+### Infrastructure
+*   **Containerization**: Docker & Docker Compose
+*   **Web Server (Prod Frontend)**: Nginx
+
 ---
 
-## Directory Structure
-```
+## 📂 Directory Structure
+```text
 log-analyzer/
-├── backend/
-│   ├── database.py       # SQLAlchemy setup and database session engine
-│   ├── models.py         # LogEntry SQLAlchemy model
-│   ├── parser.py         # Robust regex log parser supporting multiline logs
-│   ├── main.py           # FastAPI entry point, CRUD routes, and file uploads
-│   └── requirements.txt  # Python requirements
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx       # React Tailwind v4 UI dashboard
-│   │   ├── index.css     # Tailwind v4 import
-│   │   └── main.jsx      # React entry point
-│   ├── vite.config.js    # Vite configuration containing Tailwind v4 plugin
-│   └── package.json      # React dependencies
-└── README.md             # This readme file
+├── docker-compose.yml    # Orchestrates the backend and frontend services
+├── README.md             # Project documentation
+├── backend/              # FastAPI Application
+│   ├── main.py           # Application entry point, CRUD routes, file uploads
+│   ├── database.py       # SQLAlchemy engine and session setup
+│   ├── models.py         # SQLAlchemy models (e.g., LogEntry)
+│   ├── parser.py         # Regex logic for single/multiline log parsing
+│   ├── .env              # Environment variables (e.g., GEMINI_API_KEY)
+│   ├── Dockerfile        # Backend container configuration
+│   └── requirements.txt  # Python dependencies
+└── frontend/             # React UI Application
+    ├── index.html        # HTML template
+    ├── package.json      # Node dependencies & scripts
+    ├── vite.config.js    # Vite & Tailwind configurations
+    ├── nginx.conf        # Nginx configuration for Docker serving
+    ├── Dockerfile        # Frontend container configuration
+    └── src/
+        ├── main.jsx      # React DOM entry point
+        ├── App.jsx       # Main Dashboard UI component
+        └── index.css     # Tailwind imports
 ```
 
 ---
 
-## How to Run
+## 🚀 How to Run
 
 ### Workspace Recommendation
 Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) directly in VS Code or your preferred editor, and make sure it is set as your active workspace.
+
+### 0. Run with Docker (Recommended)
+From the repository root:
+```bash
+Copy-Item backend/.env.example backend/.env
+docker compose up --build
+```
+*   **Frontend**: Available at [http://localhost:3000](http://localhost:3000)
+*   **Backend API**: Available at [http://localhost:8000](http://localhost:8000)
+
+To run in detached mode:
+```bash
+Copy-Item backend/.env.example backend/.env
+docker compose up -d --build
+```
+
+To stop the stack:
+```bash
+docker compose down
+```
+
+### Terminal Commands (Local Development)
+If you prefer running the app directly in terminals instead of Docker, use these commands.
 
 ### 1. Backend Setup (FastAPI)
 1. Navigate to the `backend/` directory:
@@ -51,7 +99,7 @@ Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) dire
    ```bash
    copy .env.example .env
    ```
-   Fill in `GEMINI_API_KEY` or `GOOGLE_API_KEY` only if you want live AI analysis. The backend also runs in demo mode without those keys.
+   *Note: Fill in `GEMINI_API_KEY` or `GOOGLE_API_KEY` only if you want live AI analysis. The backend also runs in safe "demo mode" without those keys.*
 3. (Optional but recommended) Create a virtual environment and activate it:
    ```bash
    python -m venv venv
@@ -85,3 +133,4 @@ Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) dire
    npm run dev
    ```
    *The frontend application will start running on [http://localhost:5173](http://localhost:5173).*
+
