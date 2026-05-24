@@ -42,6 +42,27 @@ log-analyzer/
 ### Workspace Recommendation
 Open this folder (`C:\Users\Dell\.gemini\antigravity\scratch\log-analyzer`) directly in VS Code or your preferred editor, and make sure it is set as your active workspace.
 
+### 0. Run with Docker
+From the repository root:
+```bash
+Copy-Item backend/.env.example backend/.env
+docker compose up --build
+```
+
+To run in detached mode:
+```bash
+Copy-Item backend/.env.example backend/.env
+docker compose up -d --build
+```
+
+To stop the stack:
+```bash
+docker compose down
+```
+
+### Terminal Commands
+If you prefer running the app directly in terminals instead of Docker, use these commands.
+
 ### 1. Backend Setup (FastAPI)
 1. Navigate to the `backend/` directory:
    ```bash
